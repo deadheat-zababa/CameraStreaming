@@ -167,22 +167,32 @@ def main():
     #dll = cdll.loadLibrary(".dll")
 
     q1 = queue.Queue()
-    #q2 = queue.Queue()
-    #q3 = queue.Queue()
-    #q4 = queue.Queue()
+    q2
+    q3
+    q4
 
     #get timestamp
     st = int(time.time())+5
 
     t1 = socketThread("127.0.0.1",12345,st,q1)
-    #t2 = socketThread("127.0.0.1",12346,st,q2)
-    #t3 = socketThread("127.0.0.1",12347,st,q3)
-    #t4 = socketThread("127.0.0.1",12348,st,q4)
-
     t1.start()
-    #t2.start()
-    #t3.start()
-    #t4.start()
+
+    if(1 == mode || 2 == mode || 3 == mode){
+        q2 = queue.Queue()
+        t2 = socketThread("127.0.0.1",12346,st,q2)
+        t2.start()
+    }
+    if(2 == mode || 3 == mode){
+        q3 = queue.Queue()
+        t3 = socketThread("127.0.0.1",12347,st,q3)
+        t3.start()
+    }
+    if(3 == mode){
+        q4 = queue.Queue()
+        t4 = socketThread("127.0.0.1",12348,st,q4)
+        t4.start()
+    }
+
     capture = cv2.VideoCapture(0)
 
     firstflag = False
@@ -198,15 +208,15 @@ def main():
         else:
             #if (q1.empty()): #& q2.empty() & q3.empty() & q4.empty())):
             logging.debug("frame:%d,%s",frame.size,frame.shape)
-                #frameはndarrayなのでnumpyで処理
+            #frameはndarrayなのでnumpyで処理
             tmp_img1 = frame[0:int(frame.shape[0]/2), 0:int(frame.shape[1])]
                 #tmp_img2 = frame[int(frame.shape[0]/2):int(frame.shape[0]), 0:int(frame.shape[1])]
 
-                #-------------
-                #--q1--|--q2--
-                #------|------
-                #--q3--|--q4--
-                #------|------
+            #-------------
+            #--q1--|--q2--
+            #------|------
+            #--q3--|--q4--
+            #------|------
             tmp = tmp_img1[0:tmp_img1.shape[0],0:int(tmp_img1.shape[1]/2)]
             q1.put(tmp)
             print("get cam")
@@ -239,12 +249,12 @@ def main():
         firstflag = True
 
     t1.stop()
+    t1.join()
     #t2.stop()
-    #t3.stop()
-    #t4.stop()
-    #t1.join()
     #t2.join()
+    #t3.stop()
     #t3.join()
+    #t4.stop()
     #t4.join()
     capture.release()
     cv2.destroyAllWindows()
