@@ -1,4 +1,5 @@
 import queue
+import time
 import cv2
 
 class decodeFrame():
@@ -12,23 +13,30 @@ class decodeFrame():
         self.stopFlag = True
 
     def getFrame(self):
-        buf = self.image.get()
+        print("getFrame start")
+        size = self.image.qsize()
 
-        if(buf.size == 0):
+        if(size == 0):
+            print("buf = 0")
             return False,self.dummyimg
         else:
-            return True,buf
+            print("buf != 0")
+            return True,self.image.get()
 
     def getDummy(self):
         return self.dummyimg
     
     def getCode(self):
-        buf = self.q.get()
 
-        if(buf.size == 0):
-            return False,buf
+        print("getCode start")
+        size = self.image.qsize()
+
+        if(size == 0):
+            print("buf = 0")
+            return False,self.dummyimg
         else:
-            return True,buf
+            print("buf != 0")
+            return True,self.q.get()
 
     def start(self):
 
@@ -39,3 +47,5 @@ class decodeFrame():
                 #print("decode img")
                 frame = cv2.imdecode(framecode,cv2.IMREAD_COLOR)
                 self.image.put(frame)
+            else:
+                time.sleep(1/120)

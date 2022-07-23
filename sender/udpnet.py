@@ -3,7 +3,7 @@ from logging import exception
 import socket
 
 class udpnet():
-    def __init__(self,srcipaddr,dstipaddr,sendportNum,recvportNum):
+    def __init__(self,srcipaddr,dstipaddr,sendportNum,recvportNum,logger):
         self.s_ = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.srcipaddr_ = srcipaddr
         self.dstipaddr_ = dstipaddr
@@ -11,6 +11,7 @@ class udpnet():
         self.recvportNum_ = recvportNum
         self.stopFlag = False
         self.processmethod_ = NULL
+        self.logger = logger
 
     def send(self,senddata):
         self.s_.sendto(senddata,(self.dstipaddr_,int(self.sendportNum_)))
@@ -26,8 +27,10 @@ class udpnet():
 
             while(1):
                 try:
-                    self.s_.recvfrom(1024)
-                    self.processmethod_()
+                    recvdata = self.s_.recvfrom(1024)
+                    msg = "senddata:" + str(recvdata)
+                    self.logger.info(msg)
+                    self.processmethod_(recvdata)
                 except:
                     self.s_.close()
                     break

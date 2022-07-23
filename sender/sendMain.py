@@ -1,28 +1,53 @@
+from cmath import log
 import sys
-import logging
+
 import configparser
 import threading
 import queue
-import sender
-import frameprocess
+from tracemalloc import stop
+from sender import sender
+from frameprocess import frameprocess
+import signal
+import time
+from myLog import myLog
 
-logger = logging.getLogger('mylog')
+
+global_stopFlag = False
+
+def handler(signal, frame):
+    print("ctrl-c")
+    global global_stopFlag
+    global_stopFlag = True
 
 def sendMain():
+    global global_stopFlag
+    signal.signal(signal.SIGINT, handler)
+
+    logger = myLog("sender.log")
+    logger.info("sender START")
 
     conf = configparser.ConfigParser()
-    conf.read('config/config.ini', 'UTF-8')
+    conf.read('config/setting.ini', 'UTF-8')
 
+    logger.setLogLevel(1)
     frameq = queue.Queue()
-    send = sender(conf,frameq)
-    decode = frameprocess(conf,frameq)
-
-    th1 = threading.Thread(target=send.process)
+    decode = frameprocess(conf,frameq,logger)
+    send = sender(conf,decode,logger)
+    
+    th1 = threading.Thread(target=send.processing)
+    th1.start()
     decode.start()
 
-    decode.join()
-    send.stop()
+    while(global_stopFlag == False):
+        time.sleep(1/120)
+
+    send.stopProcessing()
     th1.join()
+
+    decode.stop()
+
+    logger.info("sender END")
+    
 
 if __name__ == '__main__':
     sendMain()

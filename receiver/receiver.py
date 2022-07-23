@@ -6,17 +6,17 @@ import time
 import struct
 import json
 import pprint
-import tcpnet
-import udpnet
+from tcpnet import tcpnet
+from udpnet import udpnet
 import threading
 
 
-class receiver():
+class receiver:
     def __init__(self,conf,q):
         self.connnectStatus = False
         self.startFlag = False
-        self.tcpsock = tcpnet(conf['info']['dstipaddr'],conf['info']['tcpport'])
-        self.udpsock = udpnet(conf['info']['srcipaddr'],conf['info']['dstipaddr'],conf['info']['udpsendport'],conf['info']['udprecvport'])
+        self.tcpsock = tcpnet(conf['info']['srcipaddr'],int(conf['info']['tcpport']))
+        self.udpsock = udpnet(conf['info']['srcipaddr'],conf['info']['dstipaddr'],int(conf['info']['udpsendport']),int(conf['info']['udprecvport']))
         self.frame = q
         self.len = 0
         self.stopFlag = False
@@ -77,15 +77,17 @@ class receiver():
         self.frame.put(img)
 
     def getConnectStatus(self):
-        return self.connnectStatus
+        return self.tcpsock.getConnectStatus()
 
     def sendStartMsg(self):
         startdata = json.dumps({"START":{}})
-        self.tcpsock.send(struct.pack('>L',startdata))
+        #self.tcpsock.send(struct.pack('>L'),startdata.encode())
+        #self.tcpsock.send(struct.pack('>L'))
+        self.tcpsock.send(startdata.encode())
 
     def sendEndMsg(self):
         enddata = json.dumps({"END":{}})
-        self.tcpsock.send(struct.pack('>L',enddata))
+        self.tcpsock.send(struct.pack('>L'),enddata.encode())
         self.startFlag = True
 
     def setFrame(self):
@@ -95,19 +97,23 @@ class receiver():
         self.stopFlag = True
 
     def processing(self):
-        logging.info("receiver START")
+        #logging.info("receiver START")
+        print("PROCESSING START")
         self.tcpsock.setReceiveProcess(self.tcpReceiveProcess)
         self.udpsock.setReceiveProcess(self.udpReceiveProcess)
 
         th1 = threading.Thread(target=self.tcpsock.receive)
         th2 = threading.Thread(target=self.udpsock.receive)
 
+        th1.start()
+        th2.start()
+
         while(not self.stopFlag):
-            time.sleep(300)
+            time.sleep(1/120)
 
         self.tcpsock.stop()
         th1.join()
         self.udpsock.stop()
         th2.join()
 
-        logging.info("receiver END")
+        #logging.info("receiver END")

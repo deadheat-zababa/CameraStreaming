@@ -6,17 +6,17 @@ import time
 import struct
 import json
 import pprint
-import tcpnet
-import udpnet
+from tcpnet import tcpnet
+from udpnet import udpnet
 import threading
-
+from myLog import myLog
 
 class sender():
-    def __init__(self,conf,fprocess):
+    def __init__(self,conf,fprocess,logger):
         self.connnectStatus = False
         self.startFlag = False
-        self.tcpsock = tcpnet(conf['info']['dstipaddr'],conf['info']['tcpport'])
-        self.udpsock = udpnet(conf['info']['srcipaddr'],conf['info']['dstipaddr'],conf['info']['udpsendport'],conf['info']['udprecvport'])
+        self.tcpsock = tcpnet(conf['info']['dstipaddr'],int(conf['info']['tcpport']),0,logger)
+        self.udpsock = udpnet(conf['info']['srcipaddr'],conf['info']['dstipaddr'],int(conf['info']['udpsendport']),int(conf['info']['udprecvport']),logger)
         self.frame = queue.Queue()
         self.len = 0
         self.stopFlag = False
@@ -26,9 +26,11 @@ class sender():
         self.quality = int(conf['info']['quality'])
         self.threshold = int(conf['info']['rtt_threshold'])
         self.interval_ = int(conf['info']['rtt_sendinterval'])
+        self.logger = logger
 
         
     def tcpReceiveProcess(self,recvdata):
+        
         jdict = json.loads(recvdata)
         
         identifier = jdict[0]
@@ -43,7 +45,7 @@ class sender():
             self.recvtime = int(time.time() * 1000)
             self.calcTAT()
         else:
-            print("ERROR")
+            self.logger.error("ERROR")
 
     def getConnectStatus(self):
         return self.connnectStatus
@@ -72,6 +74,8 @@ class sender():
         seqno = 0
         while(not self.stopFlag):
             rttdata = json.dumps({"RTT_CAL":{"seqno":seqno}})
+            msg = "senddata:" + str(rttdata)
+            self.logger.info(msg)
             self.tcpsock.send(struct.pack('>L',rttdata))
             seqno = seqno +1
             if(seqno > 999):
@@ -81,15 +85,16 @@ class sender():
             time.sleep(self.interval_)
 
     def processing(self):
-        logging.info("sender START")
+        #logging.info("sender START")
         self.tcpsock.setReceiveProcess(self.tcpReceiveProcess)
         th1 = threading.Thread(target=self.tcpsock.receive)
-        seqmo = 0
+        th1.start()
+        seqno = 0
 
         while(not self.stopFlag):
-            encimg = self.fprocess.getCode()
+            ret,encimg = self.framep.getCode()
 
-            if(self.startFlag == False):
+            if(self.startFlag == False or ret == False):
                 time.sleep(1/30)
                 continue
 
@@ -118,5 +123,5 @@ class sender():
 
         self.tcpsock.stop()
         th1.join()
-
-        logging.info("receiver END")
+        
+        self.logger.info("receiver END")

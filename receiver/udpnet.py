@@ -26,8 +26,9 @@ class udpnet():
 
             while(1):
                 try:
-                    self.s_.recvfrom(1024)
-                    self.processmethod_()
+                    recvdata = self.s_.recvfrom(1024)
+                    msg = "senddata:" + str(recvdata)
+                    self.processmethod_(recvdata)
                 except:
                     self.s_.close()
                     break
