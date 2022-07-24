@@ -10,8 +10,10 @@ HEIGHT = 720
 
 class Viewer(QWidget):
     
-    def __init__(self,conf,receiver,imgprocess):
+    def __init__(self,conf,receiver,imgprocess,logger):
         super().__init__()
+        self.buttonpushed = False
+        self.logger = logger
         self.server_ = receiver
         self.process_ = imgprocess
         self.th1 = threading.Thread(target=self.server_.processing)
@@ -19,10 +21,11 @@ class Viewer(QWidget):
         self.th1.start()
         self.th2.start()
         self.initUI()
-        print("end init")
+        self.savedFrame = False
+        
 
     def initUI(self):
-        print("initUI")
+        self.logger.info("initUI")
         self.resize(1500,800)
         self.setWindowTitle('Camera Viewer')
 
@@ -56,16 +59,16 @@ class Viewer(QWidget):
         #self.ledlamp = QPainter(self)
         self.timer = QtCore.QTimer(self)
         self.timer.timeout.connect(self.mainloop)
-        self.timer.start(300)
+        self.timer.start(1)
 
 
     def mainloop(self):
-        print("mainloop")
+        self.logger.debug("mainloop")
         self.updateFrame()
         self.update()
 
     def paintEvent(self,event):
-        print("paint EVENT")
+        self.logger.debug("paint EVENT")
         ledlamp = QPainter(self)
 
         #ledlamp.begin(self)
@@ -73,52 +76,65 @@ class Viewer(QWidget):
         ledlamp.setPen(QtCore.Qt.black)
         if(self.server_.getConnectStatus()):
             ledlamp.setBrush(QtCore.Qt.green)
-            self.startButton.setEnabled(True)
+            if(not self.buttonpushed):
+                self.startButton.setEnabled(True)
+                self.stopButton.setEnabled(False)
         else:
             ledlamp.setBrush(QtCore.Qt.red)
             self.startButton.setEnabled(False)
+            self.stopButton.setEnabled(False)
 
         ledlamp.drawEllipse(QtCore.QPointF(1430,370), 10, 10)
 
         #ledlamp.end()
 
-        print("paint EVENT END")
+        self.logger.debug("paint EVENT END")
 
 
     def startClient(self):
         self.server_.sendStartMsg()
         self.stopButton.setEnabled(True)
         self.startButton.setEnabled(False)
-        
-        print('start')
+        self.buttonpushed = True
+        self.logger.info('start')
 
     def stopClient(self):
         self.server_.sendEndMsg()
-        print('stop')
+        self.logger.info('stop')
         self.stopButton.setEnabled(False)
-        self.startButton.setEnabled(True)
-        
+        self.startButton.setEnabled(False)
+        self.buttonpushed = False
+
     def updateFrame(self):
-        print("start updateframe")
+        self.logger.debug("start updateframe")
         try:
             ret,img = self.process_.getFrame()
+
+            if(ret == True):
+                self.savedFrame = True
+                self.preFrame = img
+
+            elif(ret == False and self.savedFrame ==True):
+                img = self.preFrame
+
             img = QImage(img, img.shape[1],
                             img.shape[0], img.shape[1] * 3,QImage.Format_RGB888)
             self.pixmap = QPixmap(img)
             self.scene.clear()
             self.scene.addPixmap(self.pixmap)
         except:
-            print("updateFrame err")
+            self.logger.error("updateFrame err")
 
-        print("end updateframe")
+        self.logger.debug("end updateframe")
     
     #終了時処理
     def closeEvent(self,event):
-        print("closeEvent")
+        self.logger.info("closeEvent start")
         self.server_.stopProcessing()
         self.process_.stop()
         self.th1.join()
         self.th2 .join()
+        self.logger.info("closeEvent end")
         event.accept()
 
 

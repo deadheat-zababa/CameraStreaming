@@ -1,15 +1,13 @@
 # coding: utf-8
-from xml.dom.minidom import Identified
-import logging
 import queue
 import time
 import struct
 import json
-import pprint
+import sys
+sys.path.append("../common")
 from tcpnet import tcpnet
 from udpnet import udpnet
 import threading
-from myLog import myLog
 
 class sender():
     def __init__(self,conf,fprocess,logger):
@@ -30,22 +28,32 @@ class sender():
 
         
     def tcpReceiveProcess(self,recvdata):
-        
-        jdict = json.loads(recvdata)
-        
-        identifier = jdict[0]
+        try:
+            jdict = json.loads(recvdata)
+            self.logger.info(jdict)
+            identifier = list(jdict.keys())[0]
 
-        if(identifier == "START"):
-            self.startFlag = True
+            msg = "received msg:" + identifier
+            self.logger.info(msg)
 
-        elif(identifier == "END"):
-            self.startFlag = False
+            if(identifier == "START"):
+                self.startFlag = True
+                startdata = json.dumps({"START_OK":{}})
+                self.tcpsock.send(startdata.encode())
 
-        elif(identifier == "RTT_CAL"):
-            self.recvtime = int(time.time() * 1000)
-            self.calcTAT()
-        else:
-            self.logger.error("ERROR")
+            elif(identifier == "END"):
+                self.startFlag = False
+                startdata = json.dumps({"END_OK":{}})
+                self.tcpsock.send(startdata.encode())
+
+            elif(identifier == "RTT_CAL"):
+                self.recvtime = int(time.time() * 1000)
+                self.calcTAT()
+            else:
+                self.logger.error("ERROR")
+        except:
+            self.logger.error("tcpReceiveProcess failed:recive data")
+            raise Exception
 
     def getConnectStatus(self):
         return self.connnectStatus
@@ -97,12 +105,13 @@ class sender():
             if(self.startFlag == False or ret == False):
                 time.sleep(1/30)
                 continue
+            
+            imagedata = json.dumps({"IMAGE":{"seqno":seqno,"len":encimg.size}})
 
-            imagedata = {"IMAGE":{"seqno":seqno,"len":encimg.size}}
-            self.udpsock.send(struct.pack('>L',imagedata))
+            self.udpsock.send(imagedata.encode())
 
             if encimg.size > 1024:
-                encimg.ravel
+                #encimg.ravel
                 length = int(encimg.size/1024)
                 #print(length)
                 cnt = 0

@@ -1,94 +1,126 @@
 # coding: utf-8
-from xml.dom.minidom import Identified
-import logging
-import queue
+from logging import exception
+from os import execv
+import numpy as np
 import time
 import struct
 import json
-import pprint
+import threading
+import sys
+sys.path.append("../common")
 from tcpnet import tcpnet
 from udpnet import udpnet
-import threading
-
 
 class receiver:
-    def __init__(self,conf,q):
+    def __init__(self,conf,q,logger):
         self.connnectStatus = False
         self.startFlag = False
-        self.tcpsock = tcpnet(conf['info']['srcipaddr'],int(conf['info']['tcpport']))
-        self.udpsock = udpnet(conf['info']['srcipaddr'],conf['info']['dstipaddr'],int(conf['info']['udpsendport']),int(conf['info']['udprecvport']))
+        self.tcpsock = tcpnet(conf['info']['srcipaddr'],int(conf['info']['tcpport']),1,logger)
+        self.udpsock = udpnet(conf['info']['srcipaddr'],conf['info']['dstipaddr'],int(conf['info']['udpsendport']),int(conf['info']['udprecvport']),logger)
         self.frame = q
-        self.len = 0
+        self.size = 0
         self.stopFlag = False
+        self.logger = logger
+        self.headrecved = False
+        self.count = 0
+        self.datafirst = True
         
     def tcpReceiveProcess(self,recvdata):
-        jdict = json.loads(recvdata)
-        
-        identifier = jdict[0]
 
-        if(identifier == "START_OK"):
-            self.startFlag = True
+        try:
+            jdict = json.loads(recvdata)
+            self.logger.info(jdict)
+            identifier = list(jdict.keys())[0]
 
-        elif(identifier == "END_OK"):
-            self.startFlag = False
+            msg = "received msg:" + identifier
+            self.logger.debug(msg)
 
-        elif(identifier == "RTT_CAL"):
-            seqno = jdict["RTT_CAL"]["seqno"]
-            resdata = json.dumps({"RTT_RES":{"seqno":seqno}})
-            self.tcpsock.send(struct.pack('>L',resdata))
-        else:
-            print("ERROR")
+            if(identifier == "START_OK"):
+                self.startFlag = True
+
+            elif(identifier == "END_OK"):
+                self.startFlag = False
+
+            elif(identifier == "RTT_CAL"):
+                seqno = jdict["RTT_CAL"]["seqno"]
+                resdata = json.dumps({"RTT_RES":{"seqno":seqno}})
+                self.tcpsock.send(resdata.encode())
+            else:
+                self.logger.error("tcpReceiveProcess : ERROR")
+        except:
+            self.logger.error("tcpReceiveProcess failed:recive data")
+            raise Exception
+
 
     #receive a imagedata
     def udpReceiveProcess(self,recvdata):
 
-        #{"IMAGE":{"seqno":n,"len"xxxxx}}
-        jdict = json.loads(recvdata)
+        try:
 
-        #pprint.pprint(jdict,width=40)
+            if(self.headrecved == False):
+                jdict = json.loads(recvdata)
+                self.logger.info(jdict)
+                identifier = list(jdict.keys())[0]
 
-        identifier = jdict[0]
+                msg = "identifier : "+str(identifier)
+                self.logger.info(msg)
+                if(identifier == "IMAGE"):
+                    self.size = jdict['IMAGE']['len']
+                    msg = "image size : "+str(self.size)
+                    self.logger.info(msg)
+                    self.headrecved = True
+                    self.count = int(self.size/1024)
+                    msg = "recv count:" + str(self.count)
+                    self.logger.info(msg)
 
-        if(identifier == "IMAGE"):
-            size = jdict['IMAGE']['len']
 
-            
-        if size > 1024:
-            count = int(size/1024)
+            else:
+                if self.count != 0:
+                    msg = "count : "+ str(self.count)
+                    self.logger.info(msg)
 
-            for i in range(count):
-          
-                tmp = self.udpsock.recv(1024)
-          
-                if i == 0:
-                    img = np.frombuffer(tmp,dtype=np.uint8)
+                    msg = "recv imagedata : "+ str(recvdata)
+                    self.logger.info(msg)
+
+                    if self.datafirst == True:
+                        self.img = np.frombuffer(recvdata,dtype=np.uint8)
+                        self.datafirst = False
+                    else:
+                        self.img = np.append(self.img,np.frombuffer(recvdata,dtype=np.uint8))
                 else:
-                    img = np.append(img,np.frombuffer(tmp,dtype=np.uint8))
+                    msg = "count : 0" 
+                    self.logger.info(msg)
+                    self.img = np.append(self.img,np.frombuffer(recvdata,dtype=np.uint8))
 
-            tmp = self.udpsock.recv(int(size%1024))
-            img = np.append(img,np.frombuffer(tmp,dtype=np.uint8))
+                self.size = self.size - 1024
+                self.count = self.count -1
 
-        else:
-            tmp = self.udpsock.recv(size)
-            img = np.frombuffer(tmp,dtype=np.uint8)
-
-        img = img.reshape(size,1)
-        #print("input q")
-        self.frame.put(img)
+                if(self.count == -1):
+                    self.img = self.img.reshape(self.size,1)
+                    self.frame.put(self.img)
+                    self.logger.info("input q")
+                    self.headrecved = False
+                    self.count = 0
+                    self.datafirst = True
+        
+        except:
+            self.logger.error("udpReceiveProcess error")
+            self.headrecved == False
+            self.datafirst = True
+            self.count = 0
+            self.size = 0
 
     def getConnectStatus(self):
         return self.tcpsock.getConnectStatus()
 
     def sendStartMsg(self):
         startdata = json.dumps({"START":{}})
-        #self.tcpsock.send(struct.pack('>L'),startdata.encode())
-        #self.tcpsock.send(struct.pack('>L'))
         self.tcpsock.send(startdata.encode())
 
     def sendEndMsg(self):
         enddata = json.dumps({"END":{}})
-        self.tcpsock.send(struct.pack('>L'),enddata.encode())
-        self.startFlag = True
+        self.tcpsock.send(enddata.encode())
+        self.startFlag = False
 
     def setFrame(self):
         return self.frame
@@ -97,8 +129,7 @@ class receiver:
         self.stopFlag = True
 
     def processing(self):
-        #logging.info("receiver START")
-        print("PROCESSING START")
+        self.logger.info("PROCESSING START")
         self.tcpsock.setReceiveProcess(self.tcpReceiveProcess)
         self.udpsock.setReceiveProcess(self.udpReceiveProcess)
 

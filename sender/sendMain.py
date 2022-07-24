@@ -4,11 +4,11 @@ import sys
 import configparser
 import threading
 import queue
-from tracemalloc import stop
 from sender import sender
 from frameprocess import frameprocess
 import signal
 import time
+sys.path.append("../common")
 from myLog import myLog
 
 
@@ -29,7 +29,7 @@ def sendMain():
     conf = configparser.ConfigParser()
     conf.read('config/setting.ini', 'UTF-8')
 
-    logger.setLogLevel(1)
+    logger.setLogLevel(conf['info']['loglevel'])
     frameq = queue.Queue()
     decode = frameprocess(conf,frameq,logger)
     send = sender(conf,decode,logger)
