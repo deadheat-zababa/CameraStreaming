@@ -35,11 +35,15 @@ class udpnet():
                     self.processmethod_(recvdata[0])
                 except:
                     self.logger.error("udp receie: error")
-                    self.s_.close()
+                    if(self.s_):
+                        self.s_.close()
                     break
+
+        self.logger.info("udp receie end")
 
     def setReceiveProcess(self,processmethod):
         self.processmethod_ = processmethod
 
     def stop(self):
+        self.s_.close()
         self.stopFlag = True
