@@ -65,7 +65,7 @@ class receiver:
                 msg = "identifier : "+str(identifier)
                 self.logger.info(msg)
                 if(identifier == "IMAGE"):
-                    self.size = jdict['IMAGE']['len']
+                    self.size = int(jdict['IMAGE']['len'])
                     msg = "image size : "+str(self.size)
                     self.logger.info(msg)
                     self.headrecved = True
@@ -73,9 +73,12 @@ class receiver:
                     msg = "recv count:" + str(self.count)
                     self.logger.info(msg)
 
-
             else:
+                msg = "recvdata size:" + str(len(recvdata))
+                self.logger.info(msg)
+
                 if self.count != 0:
+                    
                     msg = "count : "+ str(self.count)
                     self.logger.info(msg)
 
@@ -89,6 +92,8 @@ class receiver:
                         self.img = np.append(self.img,np.frombuffer(recvdata,dtype=np.uint8))
                 else:
                     msg = "count : 0" 
+                    self.logger.info(msg)
+                    msg = "recv imagedata : "+ str(recvdata)
                     self.logger.info(msg)
                     self.img = np.append(self.img,np.frombuffer(recvdata,dtype=np.uint8))
 
@@ -105,6 +110,8 @@ class receiver:
         
         except:
             self.logger.error("udpReceiveProcess error")
+            msg = "recedata:" + str(recvdata)
+            self.logger.info(msg)
             self.headrecved == False
             self.datafirst = True
             self.count = 0
@@ -143,8 +150,9 @@ class receiver:
             time.sleep(1/120)
 
         self.tcpsock.stop()
-        th1.join()
         self.udpsock.stop()
+
+        th1.join()
         th2.join()
 
-        #logging.info("receiver END")
+        self.logger.info("receiver END")

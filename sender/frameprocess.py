@@ -47,6 +47,7 @@ class frameprocess(threading.Thread):
 
                 #get frame data
                 self.logger.debug("img encode")
+                frame = cv2.cvtColor(frame,cv2.COLOR_BGR2RGB)
                 ret, encimg = cv2.imencode(".jpg",frame,[int(cv2.IMWRITE_JPEG_QUALITY),self.quality_])
                 if False == ret:
                     self.logger.error("Encode error")

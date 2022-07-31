@@ -1,17 +1,19 @@
 import threading
 from time import sleep
-from PyQt5.QtWidgets import QWidget, QPushButton, QGridLayout, QLabel,QLineEdit,QGraphicsView,QGraphicsScene
+from PyQt5.QtWidgets import QMainWindow,QWidget, QPushButton, QGridLayout, QLabel,QLineEdit,QGraphicsView,QGraphicsScene
 from PyQt5.QtGui import QPainter,QPixmap,QImage
 import PyQt5.QtCore as QtCore
+import cv2
+from ui_form import Ui_MainWindow
 import receiver
 
 WIDTH = 1280
 HEIGHT = 720
 
-class Viewer(QWidget):
+class Viewer(QMainWindow):
     
     def __init__(self,conf,receiver,imgprocess,logger):
-        super().__init__()
+        super(Viewer,self).__init__()
         self.buttonpushed = False
         self.logger = logger
         self.server_ = receiver
@@ -20,43 +22,26 @@ class Viewer(QWidget):
         self.th2 = threading.Thread(target=self.process_.start)
         self.th1.start()
         self.th2.start()
+        self.ui = Ui_MainWindow()
+        self.ui.setupUi(self)
         self.initUI()
         self.savedFrame = False
         
 
     def initUI(self):
         self.logger.info("initUI")
-        self.resize(1500,800)
-        self.setWindowTitle('Camera Viewer')
 
-        self.statuslabel = QLabel(':  status')
-        #self.ledlamp = QPainter(self)
-        #self.ledlamp.begin(self)
-        #self.ledlamp.setBrush(QtCore.Qt.red)
         
+        self.ui.pushButton.setEnabled(False)
+        self.ui.pushButton_2.setEnabled(False)
+        self.ui.pushButton.clicked.connect(self.startClient)
+        self.ui.pushButton_2.clicked.connect(self.stopClient)
+        self.ui.radioButton.setEnabled(False)
 
-        self.startButton = QPushButton('START')
-        self.stopButton = QPushButton('STOP')
 
-        self.startButton.setEnabled(False)
-        self.stopButton.setEnabled(False)
-        self.startButton.clicked.connect(self.startClient)
-        self.stopButton.clicked.connect(self.stopClient)
-
-        self.grid = QGridLayout()
-
-        self.view = QGraphicsView()
         self.scene = QGraphicsScene()
-        self.view.setScene(self.scene)  
-        self.grid.addWidget(self.view,0,0,3,1)
-        #self.grid.addWidget(self.ledlamp,0,1,1,1)
-        self.grid.addWidget(self.statuslabel, 0,2,1,1) 
-        self.grid.addWidget(self.startButton, 1,1,1,2)
-        self.grid.addWidget(self.stopButton,  2,1,1,2)
-
-        self.setLayout(self.grid)
-
-        #self.ledlamp = QPainter(self)
+        self.ui.graphicsView.setScene(self.scene)  
+        
         self.timer = QtCore.QTimer(self)
         self.timer.timeout.connect(self.mainloop)
         self.timer.start(1)
@@ -69,47 +54,52 @@ class Viewer(QWidget):
 
     def paintEvent(self,event):
         self.logger.debug("paint EVENT")
-        ledlamp = QPainter(self)
 
-        #ledlamp.begin(self)
-
-        ledlamp.setPen(QtCore.Qt.black)
         if(self.server_.getConnectStatus()):
-            ledlamp.setBrush(QtCore.Qt.green)
+            self.ui.radioButton.setEnabled(True)
+            self.ui.radioButton.setChecked(True)
+
             if(not self.buttonpushed):
-                self.startButton.setEnabled(True)
-                self.stopButton.setEnabled(False)
+                self.ui.pushButton.setEnabled(True)
+                self.ui.pushButton_2.setEnabled(False)
         else:
-            ledlamp.setBrush(QtCore.Qt.red)
-            self.startButton.setEnabled(False)
-            self.stopButton.setEnabled(False)
-
-        ledlamp.drawEllipse(QtCore.QPointF(1430,370), 10, 10)
-
-        #ledlamp.end()
+            if(self.ui.radioButton.isChecked()):
+                self.ui.radioButton.setChecked(False)
+                self.ui.radioButton.setEnabled(False)
+            self.ui.pushButton.setEnabled(False)
+            self.ui.pushButton_2.setEnabled(False)
 
         self.logger.debug("paint EVENT END")
 
 
     def startClient(self):
         self.server_.sendStartMsg()
-        self.stopButton.setEnabled(True)
-        self.startButton.setEnabled(False)
+        self.ui.pushButton_2.setEnabled(True)
+        self.ui.pushButton.setEnabled(False)
         self.buttonpushed = True
         self.logger.info('start')
 
     def stopClient(self):
         self.server_.sendEndMsg()
         self.logger.info('stop')
-        self.stopButton.setEnabled(False)
-        self.startButton.setEnabled(False)
+        self.ui.pushButton_2.setEnabled(False)
+        self.ui.pushButton.setEnabled(False)
         self.buttonpushed = False
 
     def updateFrame(self):
         self.logger.debug("start updateframe")
-        try:
-            ret,img = self.process_.getFrame()
 
+        try:
+            ret,tmpimg = self.process_.getFrame()
+            currentwidht = self.ui.graphicsView.width()
+            msg = "current windowsize -> width:" + str(currentwidht)
+            currentheight = self.ui.graphicsView.height()
+            self.logger.info(msg)
+            msg = "current windowsize -> height:" + str(currentheight)
+            self.logger.info(msg)
+
+            img = cv2.resize(tmpimg, dsize=(int(currentwidht)-5,int(currentheight)-5))
+        
             if(ret == True):
                 self.savedFrame = True
                 self.preFrame = img
@@ -122,6 +112,7 @@ class Viewer(QWidget):
             self.pixmap = QPixmap(img)
             self.scene.clear()
             self.scene.addPixmap(self.pixmap)
+
         except:
             self.logger.error("updateFrame err")
 

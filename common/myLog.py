@@ -9,8 +9,8 @@ class myLogDefine:
 
 class myLog:
     def __init__(self,logfilename='mylog.log'):
-        self.logger = logging.getLogger('senderlog')
-        self.formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        self.logger = logging.getLogger('camerastreaminglog')
+        self.formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(funcName)s - %(lineno)d - %(message)s')
         self.fh = logging.FileHandler(filename=logfilename)
         self.setLogLevel(2)
         self.fh.setFormatter(self.formatter)

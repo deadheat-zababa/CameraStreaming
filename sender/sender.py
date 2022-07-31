@@ -23,7 +23,7 @@ class sender():
         self.recvtime = int(time.time() * 1000)
         self.quality = int(conf['info']['quality'])
         self.threshold = int(conf['info']['rtt_threshold'])
-        self.interval_ = int(conf['info']['rtt_sendinterval'])
+        self.interval_ = int(conf['info']['rtt_sendinterval'])/1000
         self.logger = logger
 
         
@@ -46,7 +46,7 @@ class sender():
                 startdata = json.dumps({"END_OK":{}})
                 self.tcpsock.send(startdata.encode())
 
-            elif(identifier == "RTT_CAL"):
+            elif(identifier == "RTT_RES"):
                 self.recvtime = int(time.time() * 1000)
                 self.calcTAT()
             else:
@@ -76,19 +76,20 @@ class sender():
             if(self.quality > 90):
                 self.quality = 90
 
-        self.fprocess.update(self.quality)
+        self.framep.updateQuqlity(self.quality)
 
     def rttsend(self):
         seqno = 0
         while(not self.stopFlag):
-            rttdata = json.dumps({"RTT_CAL":{"seqno":seqno}})
-            msg = "senddata:" + str(rttdata)
-            self.logger.info(msg)
-            self.tcpsock.send(struct.pack('>L',rttdata))
-            seqno = seqno +1
-            if(seqno > 999):
-                seqno = 0
-            self.sendtime = int(time.time() * 1000)
+            if(True == self.startFlag):
+                rttdata = json.dumps({"RTT_CAL":{"seqno":seqno}})
+                msg = "[RTT]senddata:" + str(rttdata)
+                self.logger.info(msg)
+                self.tcpsock.send(rttdata.encode())
+                seqno = seqno +1
+                if(seqno > 999):
+                    seqno = 0
+                self.sendtime = int(time.time() * 1000)
 
             time.sleep(self.interval_)
 
@@ -97,6 +98,8 @@ class sender():
         self.tcpsock.setReceiveProcess(self.tcpReceiveProcess)
         th1 = threading.Thread(target=self.tcpsock.receive)
         th1.start()
+        th2 = threading.Thread(target=self.rttsend)
+        th2.start()
         seqno = 0
 
         while(not self.stopFlag):
@@ -107,19 +110,31 @@ class sender():
                 continue
             
             imagedata = json.dumps({"IMAGE":{"seqno":seqno,"len":encimg.size}})
+            self.logger.info(imagedata)
 
             self.udpsock.send(imagedata.encode())
 
             if encimg.size > 1024:
-                #encimg.ravel
                 length = int(encimg.size/1024)
                 #print(length)
                 cnt = 0
                 for i in range(length):
-                    self.udpsock.send(encimg[cnt:i*1024+1024].tobytes())
+                    senddata = encimg[cnt:i*1024+1024]
+                    self.udpsock.send(senddata.tobytes())
                     cnt += 1024
+                    msg = "count : "+ str(i)
+                    self.logger.info(msg)
+
+                    msg = "send imagedata : "+ str(senddata)
+                    self.logger.info(msg)
                     #tmp_img = encimg[cnt:i*1024+1024].tobytes()
                     #print(type(tmp_img))
+                
+                msg = "count : "+ str(length)
+                self.logger.info(msg)
+
+                msg = "send imagedata : "+ str(senddata)
+                self.logger.info(msg)
 
                 self.udpsock.send(encimg[cnt:(cnt+int(encimg.size%1024))].tobytes())
                 #print(encimg[cnt:(cnt+int(encimg.size%1024))])
@@ -128,9 +143,11 @@ class sender():
                 self.udpsock.send(encimg.tobytes())
 
             seqno = seqno+1
+            time.sleep(1/120)
 
-
+        th2.join()
         self.tcpsock.stop()
         th1.join()
+
         
         self.logger.info("receiver END")

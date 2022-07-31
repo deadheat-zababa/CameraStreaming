@@ -13,6 +13,11 @@ class tcpnet():
         self.mode = mode
         msg = "IP ADDR:" + str(self.ipaddr_) + "\n" + "PORT NUMBER:" + str(self.portNum_)
         self.logger.info(msg)
+
+        if(1 == self.mode):
+            server = (self.ipaddr_,self.portNum_)
+            self.s_.bind(server)
+
         
     def getConnectStatus(self):
         return self.connectStatus
@@ -41,13 +46,15 @@ class tcpnet():
             self.logger.info("listen")
             if(not self.s_):
                 self.s_.open()
+                server = (self.ipaddr_,self.portNum_)
+                self.s_.bind(server)
 
-            server = (self.ipaddr_,self.portNum_)
-            self.s_.bind(server)
-            self.s_.listen()
+            self.s_.listen(1)
             self.s_,address = self.s_.accept()
+            return True
         except:
             self.logger.error("Error:accept")
+            return False
 
     def send(self,senddata):
         try:
@@ -64,10 +71,12 @@ class tcpnet():
                 self.connect()
             
             elif(1 == self.mode):
-                self.accept()
-                self.connectStatus = True
-                self.logger.info("accept success")
-
+                while((not self.connectStatus)):
+                    ret = self.accept()
+                    if(ret == True or self.stopFlag == True):
+                        self.connectStatus = True
+                        self.logger.info("accept success")
+            
             if(self.stopFlag == True):
                 break
             
@@ -84,6 +93,8 @@ class tcpnet():
                     self.connectStatus = False
                     time.sleep(1)
                     break
+        self.logger.info("tcp receie end")
+
 
     def reset(self):
          if(self.s_):
