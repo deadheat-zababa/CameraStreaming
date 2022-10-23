@@ -1,4 +1,5 @@
 import logging
+import inspect
 
 class myLogDefine:
     DEBUG = 1
@@ -10,7 +11,7 @@ class myLogDefine:
 class myLog:
     def __init__(self,logfilename='mylog.log'):
         self.logger = logging.getLogger('camerastreaminglog')
-        self.formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(funcName)s - %(lineno)d - %(message)s')
+        self.formatter = logging.Formatter('[%(asctime)s] - [%(levelname)s] - %(message)s')
         self.fh = logging.FileHandler(filename=logfilename)
         self.setLogLevel(2)
         self.fh.setFormatter(self.formatter)
@@ -22,6 +23,7 @@ class myLog:
         #3 -> warn
         #4 -> error
         #5 -> critical
+
         if(myLogDefine.DEBUG == level):
             self.logger.setLevel(logging.DEBUG)
             self.fh.setLevel(logging.DEBUG)
@@ -45,19 +47,24 @@ class myLog:
 
     
 
-    def debug(self,msg):
+    def debug(self,msg_):
+        msg ="[" + inspect.stack()[1].filename + ":" + str(inspect.currentframe().f_back.f_lineno) + "]" + "-" + "[" + inspect.stack()[1].function + "]" + "- " + msg_
         self.logger.debug(msg)
 
-    def info(self,msg):
+    def info(self,msg_):
+        msg ="[" + inspect.stack()[1].filename + ":" + str(inspect.currentframe().f_back.f_lineno) + "]" + "-" + "[" + inspect.stack()[1].function + "]" + "- " + msg_
         self.logger.info(msg)
 
-    def warn(self,msg):
+    def warn(self,msg_):
+        msg ="[" + inspect.stack()[1].filename + ":" + str(inspect.currentframe().f_back.f_lineno) + "]" + "-" + "[" + inspect.stack()[1].function + "]" + "- " + msg_
         self.logger.warn(msg)
 
-    def error(self,msg):
+    def error(self,msg_):
+        msg ="[" + inspect.stack()[1].filename + ":" + str(inspect.currentframe().f_back.f_lineno) + "]" + "-" + "[" + inspect.stack()[1].function + "]" + "- " + msg_
         self.logger.error(msg)
 
-    def critical(self,msg):
+    def critical(self,msg_):
+        msg ="[" + inspect.stack()[1].filename + ":" + str(inspect.currentframe().f_back.f_lineno) + "]" + "-" + "[" + inspect.stack()[1].function + "]" + "- " + msg_
         self.logger.critical(msg)
 
 

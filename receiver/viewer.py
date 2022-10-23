@@ -6,45 +6,42 @@ import PyQt5.QtCore as QtCore
 import cv2
 from ui_form import Ui_MainWindow
 import receiver
-
+from concurrent.futures import ThreadPoolExecutor
 WIDTH = 1280
 HEIGHT = 720
 
 class Viewer(QMainWindow):
-    
     def __init__(self,conf,receiver,imgprocess,logger):
         super(Viewer,self).__init__()
         self.buttonpushed = False
         self.logger = logger
         self.server_ = receiver
         self.process_ = imgprocess
-        self.th1 = threading.Thread(target=self.server_.processing)
-        self.th2 = threading.Thread(target=self.process_.start)
-        self.th1.start()
-        self.th2.start()
+
+        executor = ThreadPoolExecutor(max_workers=2)
+        self.th1 = executor.submit(self.server_.processing)
+        self.th2 = executor.submit(self.process_.start)
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
         self.initUI()
         self.savedFrame = False
-        
+        self.endFlag = False
 
     def initUI(self):
         self.logger.info("initUI")
 
-        
         self.ui.pushButton.setEnabled(False)
         self.ui.pushButton_2.setEnabled(False)
         self.ui.pushButton.clicked.connect(self.startClient)
         self.ui.pushButton_2.clicked.connect(self.stopClient)
         self.ui.radioButton.setEnabled(False)
 
-
         self.scene = QGraphicsScene()
         self.ui.graphicsView.setScene(self.scene)  
         
         self.timer = QtCore.QTimer(self)
         self.timer.timeout.connect(self.mainloop)
-        self.timer.start(1)
+        self.timer.start(33)
 
 
     def mainloop(self):
@@ -55,19 +52,24 @@ class Viewer(QMainWindow):
     def paintEvent(self,event):
         self.logger.debug("paint EVENT")
 
+        #TCP接続OK
         if(self.server_.getConnectStatus()):
             self.ui.radioButton.setEnabled(True)
             self.ui.radioButton.setChecked(True)
 
+            #STARTボタン押下
             if(not self.buttonpushed):
                 self.ui.pushButton.setEnabled(True)
                 self.ui.pushButton_2.setEnabled(False)
+        #TCP接続NG
         else:
             if(self.ui.radioButton.isChecked()):
                 self.ui.radioButton.setChecked(False)
                 self.ui.radioButton.setEnabled(False)
+
             self.ui.pushButton.setEnabled(False)
             self.ui.pushButton_2.setEnabled(False)
+            self.buttonpushed = False
 
         self.logger.debug("paint EVENT END")
 
@@ -90,21 +92,25 @@ class Viewer(QMainWindow):
         self.logger.debug("start updateframe")
 
         try:
+            
             ret,tmpimg = self.process_.getFrame()
             currentwidht = self.ui.graphicsView.width()
             msg = "current windowsize -> width:" + str(currentwidht)
             currentheight = self.ui.graphicsView.height()
-            self.logger.info(msg)
+            self.logger.debug(msg)
             msg = "current windowsize -> height:" + str(currentheight)
-            self.logger.info(msg)
+            self.logger.debug(msg)
 
             img = cv2.resize(tmpimg, dsize=(int(currentwidht)-5,int(currentheight)-5))
-        
+            
             if(ret == True):
+                self.logger.debug("update:new frame")
                 self.savedFrame = True
                 self.preFrame = img
 
+            #遅延対策
             elif(ret == False and self.savedFrame ==True):
+                self.logger.warn("update:delay frame")
                 img = self.preFrame
 
             img = QImage(img, img.shape[1],
@@ -123,8 +129,6 @@ class Viewer(QMainWindow):
         self.logger.info("closeEvent start")
         self.server_.stopProcessing()
         self.process_.stop()
-        self.th1.join()
-        self.th2 .join()
         self.logger.info("closeEvent end")
         event.accept()
 

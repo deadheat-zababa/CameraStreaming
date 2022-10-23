@@ -1,5 +1,6 @@
 import threading
 import cv2
+import pyvirtualcam
 import logging
 import time
 from myLog import myLog
@@ -16,6 +17,8 @@ class frameprocess(threading.Thread):
         self.setDaemon(True)
         self.logger = logger
         self.stopflag = False
+        self.framerate= float(conf['info']['framerate'])
+        self.qMax = 3
 
     def stop(self):
         self.stopflag = True
@@ -25,6 +28,8 @@ class frameprocess(threading.Thread):
         self.quality_ =  quality
 
     def setCode(self,framecode):
+        if(self.q.qsize() == self.qMax):
+            tmp = self.q.get()
         self.q.put(framecode)
 
     def getCode(self):
@@ -59,11 +64,13 @@ class frameprocess(threading.Thread):
                     self.setCode(encimg)
                     #print(type(encimg))
                     #print(encimg.size)
-                msg = "Sleep:" + str(1/capture.get(3))
+                msg = "Sleep:" + str(1/self.framerate)
                 self.logger.debug(msg)
-                time.sleep(1/capture.get(3))
+                time.sleep(1/self.framerate)
             except KeyboardInterrupt:
+                self.logger.info("frameprocess Thread Ctrl-C")
                 break
 
         capture.release()
         cv2.destroyAllWindows()
+        self.logger.info("frameprocess Thread End")

@@ -1,3 +1,4 @@
+from base64 import encode
 from cmath import log
 import sys
 
@@ -29,14 +30,15 @@ def sendMain():
     conf = configparser.ConfigParser()
     conf.read('config/setting.ini', 'UTF-8')
 
-    logger.setLogLevel(conf['info']['loglevel'])
+    logger.setLogLevel(int(conf['info']['loglevel']))
+
     frameq = queue.Queue()
-    decode = frameprocess(conf,frameq,logger)
-    send = sender(conf,decode,logger)
+    encode = frameprocess(conf,frameq,logger)
+    send = sender(conf,encode,logger)
     
     th1 = threading.Thread(target=send.processing)
     th1.start()
-    decode.start()
+    encode.start()
 
     while(global_stopFlag == False):
         time.sleep(1/120)
@@ -44,7 +46,8 @@ def sendMain():
     send.stopProcessing()
     th1.join()
 
-    decode.stop()
+    encode.stop()
+    encode.join()
 
     logger.info("sender END")
     

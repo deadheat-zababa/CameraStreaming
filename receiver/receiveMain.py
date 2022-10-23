@@ -17,7 +17,7 @@ def receiveMain():
     conf = configparser.ConfigParser()
     conf.read('config/setting.ini', 'UTF-8')
 
-    logger.setLogLevel(conf['info']['loglevel'])
+    logger.setLogLevel(int(conf['info']['loglevel']))
 
     app = QApplication(sys.argv)
 

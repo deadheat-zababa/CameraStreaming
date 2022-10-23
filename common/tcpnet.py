@@ -4,7 +4,7 @@ import time
 
 class tcpnet():
     def __init__(self,ipaddr,portNum,mode,logger):
-        self.s_ = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.s_ = None#socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.ipaddr_ = ipaddr.strip('""')
         self.portNum_ = int(portNum)
         self.stopFlag = False
@@ -13,10 +13,7 @@ class tcpnet():
         self.mode = mode
         msg = "IP ADDR:" + str(self.ipaddr_) + "\n" + "PORT NUMBER:" + str(self.portNum_)
         self.logger.info(msg)
-
-        if(1 == self.mode):
-            server = (self.ipaddr_,self.portNum_)
-            self.s_.bind(server)
+        self.server = (self.ipaddr_,self.portNum_)
 
         
     def getConnectStatus(self):
@@ -26,8 +23,8 @@ class tcpnet():
     
         while(not self.stopFlag):
             try:
-                if(not self.s_):
-                    self.s_.open()
+                self.logger.info("socket open")
+                self.s_ = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
                 server = (self.ipaddr_,self.portNum_)
                 self.s_.settimeout(1000)
@@ -37,17 +34,16 @@ class tcpnet():
                 self.logger.info("conncet succcess")
                 break
             except Exception as e:
-                self.logger.error(e)
+                self.logger.error(str(e))
                 time.sleep(1)
         self.logger.debug("connect end")
 
     def accept(self):
         try:
             self.logger.info("listen")
-            if(not self.s_):
-                self.s_.open()
-                server = (self.ipaddr_,self.portNum_)
-                self.s_.bind(server)
+
+            self.s_ =socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.s_.bind(self.server)
 
             self.s_.listen(1)
             self.s_,address = self.s_.accept()
@@ -84,9 +80,10 @@ class tcpnet():
                 try:
                     recvdata = self.s_.recv(1024)
 
-                    msg = "recvdata:" + str(recvdata)
-                    self.logger.info(msg)
-                    self.processmethod_(recvdata)
+                    if(len(recvdata) > 0):
+                        msg = "recvdata:" + str(recvdata)
+                        self.logger.debug(msg)
+                        self.processmethod_(recvdata)
                 except:
                     self.logger.info("close sock")
                     self.s_.close()
@@ -97,8 +94,8 @@ class tcpnet():
 
 
     def reset(self):
-         if(self.s_):
-                self.s_.close()
+        if(self.s_):
+            self.s_.close()
 
     def setReceiveProcess(self,processmethod):
         self.processmethod_ = processmethod
